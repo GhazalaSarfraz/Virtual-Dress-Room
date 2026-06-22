@@ -1,0 +1,22 @@
+# General
+.DS_Store
+Thumbs.db
+
+# Laravel
+/Backend-Laravel/.env
+/Backend-Laravel/.env.backup
+/Backend-Laravel/vendor/
+/Backend-Laravel/node_modules/
+
+# Flutter
+/Mobile-App-Flutter/build/
+/Mobile-App-Flutter/.dart_tool/
+/Mobile-App-Flutter/.idea/
+/Mobile-App-Flutter/.pub-cache/
+/Mobile-App-Flutter/.pub/
+
+# Python
+/AI-Bridge-Python/__pycache__/
+/AI-Bridge-Python/.venv/
+/AI-Bridge-Python/venv/
+*.pyc
