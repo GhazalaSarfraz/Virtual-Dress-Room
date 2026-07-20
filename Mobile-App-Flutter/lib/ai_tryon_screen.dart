@@ -4,7 +4,7 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:http/http.dart' as http;
+// import 'package:http/http.dart' as http;
 import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'models/product.dart';
 import 'services/api_service.dart';
@@ -168,11 +168,13 @@ class _AITryOnScreenState extends State<AITryOnScreen> {
       loadingTimer.cancel();
 
       if (response["status"] == "success") {
+        // Prefer base64 (image_b64) for direct rendering — no URL loading issues
+        String? b64 = response["image_b64"] ?? response["image"];
         setState(() {
-          resultImage = response["image"];
+          resultImage = b64;
           isLoading = false;
         });
-        showSuccessSnackBar("Virtual Try-On generated successfully!");
+        showSuccessSnackBar("VirtualFit AI try-on generated successfully!");
       } else {
         setState(() {
           isLoading = false;
@@ -213,38 +215,40 @@ class _AITryOnScreenState extends State<AITryOnScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0F0C20),
+      backgroundColor: const Color(0xFFFAF9F6),
       appBar: widget.preselectedProduct != null
           ? AppBar(
-              backgroundColor: const Color(0xFF1E1B38),
-              iconTheme: const IconThemeData(color: Colors.white),
-              title: const Text("AI TRY-ON STUDIO", style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+              backgroundColor: Colors.white,
+              iconTheme: const IconThemeData(color: Color(0xFF2F2F2F)),
               elevation: 0,
+              surfaceTintColor: Colors.transparent,
+              title: const Text(
+                "AI TRY-ON STUDIO",
+                style: TextStyle(color: Color(0xFFD4AF37), fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 1.2),
+              ),
+              bottom: PreferredSize(
+                preferredSize: const Size.fromHeight(1),
+                child: Container(height: 1, color: const Color(0xFFEAEAEA)),
+              ),
             )
           : null,
       body: Container(
         height: double.infinity,
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            colors: [Color(0xFF0F0C20), Color(0xFF15102A)],
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-          ),
-        ),
+        color: const Color(0xFFFAF9F6),
         child: SafeArea(
           child: SingleChildScrollView(
             padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 16.0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // Header (Only show if not pushed from detail page)
+                // Header
                 if (widget.preselectedProduct == null) ...[
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       ShaderMask(
                         shaderCallback: (bounds) => const LinearGradient(
-                          colors: [Color(0xFF8A2387), Color(0xFFE94057), Color(0xFFF27121)],
+                          colors: [Color(0xFFD4AF37), Color(0xFFE5C86C)],
                         ).createShader(bounds),
                         child: const Text(
                           "AI TRY-ON STUDIO",
@@ -262,7 +266,7 @@ class _AITryOnScreenState extends State<AITryOnScreen> {
                   const Center(
                     child: Text(
                       "Select a catalog garment and see how it fits you!",
-                      style: TextStyle(color: Color(0xFF8B87B5), fontSize: 13),
+                      style: TextStyle(color: Color(0xFF888888), fontSize: 13),
                     ),
                   ),
                   const SizedBox(height: 20),
@@ -271,33 +275,27 @@ class _AITryOnScreenState extends State<AITryOnScreen> {
                 // 1. Dynamic Catalog Dress Carousel
                 const Text(
                   "Choose a Dress to Try On",
-                  style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold),
+                  style: TextStyle(color: Color(0xFF2F2F2F), fontSize: 14, fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 10),
                 _buildCatalogCarousel(),
                 const SizedBox(height: 24),
 
-                // 2. Upload Workspace (Duo Layout: Selected Dress vs Human Photo)
+                // 2. Upload Workspace
                 Row(
                   children: [
-                    // Active Dress Preview
-                    Expanded(
-                      child: _buildActiveDressCard(),
-                    ),
+                    Expanded(child: _buildActiveDressCard()),
                     const SizedBox(width: 16),
-                    // Human Image Picker
-                    Expanded(
-                      child: _buildHumanImageCard(),
-                    ),
+                    Expanded(child: _buildHumanImageCard()),
                   ],
                 ),
                 const SizedBox(height: 28),
 
-                // 3. Action Trigger Button
+                // 3. Action Button
                 _buildGenerateButton(),
                 const SizedBox(height: 36),
 
-                // 4. Try-On Result Canvas
+                // 4. Result
                 if (resultImage != null) _buildResultCard() else _buildEmptyResultCard(),
                 const SizedBox(height: 40),
               ],
@@ -312,7 +310,7 @@ class _AITryOnScreenState extends State<AITryOnScreen> {
     if (isProductsLoading) {
       return const SizedBox(
         height: 110,
-        child: Center(child: CircularProgressIndicator(color: Color(0xFFE94057))),
+        child: Center(child: CircularProgressIndicator(color: Color(0xFFD4AF37))),
       );
     }
 
@@ -320,12 +318,12 @@ class _AITryOnScreenState extends State<AITryOnScreen> {
       return Container(
         height: 110,
         decoration: BoxDecoration(
-          color: const Color(0xFF1E1B38),
+          color: Colors.white,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: const Color(0xFF322E54)),
+          border: Border.all(color: const Color(0xFFEAEAEA)),
         ),
         alignment: Alignment.center,
-        child: const Text("No clothes found in database", style: TextStyle(color: Color(0xFF8B87B5))),
+        child: const Text("No clothes found in database", style: TextStyle(color: Color(0xFF888888))),
       );
     }
 
@@ -352,8 +350,8 @@ class _AITryOnScreenState extends State<AITryOnScreen> {
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(14),
                 border: Border.all(
-                  color: isSelected ? const Color(0xFFE94057) : const Color(0xFF322E54),
-                  width: isSelected ? 2 : 1,
+                  color: isSelected ? const Color(0xFFD4AF37) : const Color(0xFFEAEAEA),
+                  width: isSelected ? 2.5 : 1,
                 ),
               ),
               child: ClipRRect(
@@ -367,9 +365,9 @@ class _AITryOnScreenState extends State<AITryOnScreen> {
                     ),
                     if (isSelected)
                       Container(
-                        color: const Color(0xFFE94057).withOpacity(0.2),
+                        color: const Color(0xFFD4AF37).withOpacity(0.2),
                         child: const Center(
-                          child: Icon(Icons.check_circle, color: Colors.white, size: 24),
+                          child: Icon(Icons.check_circle, color: Color(0xFFD4AF37), size: 24),
                         ),
                       ),
                   ],
@@ -390,18 +388,21 @@ class _AITryOnScreenState extends State<AITryOnScreen> {
           padding: EdgeInsets.only(left: 4, bottom: 8),
           child: Text(
             "Selected Dress",
-            style: TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.bold),
+            style: TextStyle(color: Color(0xFF2F2F2F), fontSize: 12, fontWeight: FontWeight.bold),
           ),
         ),
         Container(
           height: 190,
           decoration: BoxDecoration(
-            color: const Color(0xFF1E1B38),
+            color: Colors.white,
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
-              color: selectedProduct != null ? const Color(0xFFE94057) : const Color(0xFF322E54),
+              color: selectedProduct != null ? const Color(0xFFD4AF37) : const Color(0xFFEAEAEA),
               width: selectedProduct != null ? 1.5 : 1,
             ),
+            boxShadow: [
+              BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 10, offset: const Offset(0, 4)),
+            ],
           ),
           child: ClipRRect(
             borderRadius: BorderRadius.circular(16),
@@ -419,15 +420,15 @@ class _AITryOnScreenState extends State<AITryOnScreen> {
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           IconButton(
-                            icon: const Icon(Icons.checkroom_outlined, size: 36, color: Color(0xFF8B87B5)),
+                            icon: const Icon(Icons.checkroom_outlined, size: 36, color: Color(0xFFAAAAAA)),
                             onPressed: pickCustomClothImage,
                           ),
                           const SizedBox(height: 8),
-                          const Text("No Dress", style: TextStyle(color: Color(0xFF8B87B5), fontSize: 12)),
+                          const Text("No Dress", style: TextStyle(color: Color(0xFFAAAAAA), fontSize: 12)),
                           const SizedBox(height: 4),
                           TextButton(
                             onPressed: pickCustomClothImage,
-                            child: const Text("Upload Custom", style: TextStyle(color: Color(0xFFE94057), fontSize: 10)),
+                            child: const Text("Upload Custom", style: TextStyle(color: Color(0xFFD4AF37), fontSize: 10)),
                           ),
                         ],
                       ),
@@ -445,7 +446,7 @@ class _AITryOnScreenState extends State<AITryOnScreen> {
           padding: EdgeInsets.only(left: 4, bottom: 8),
           child: Text(
             "Your Photo",
-            style: TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.bold),
+            style: TextStyle(color: Color(0xFF2F2F2F), fontSize: 12, fontWeight: FontWeight.bold),
           ),
         ),
         InkWell(
@@ -454,12 +455,15 @@ class _AITryOnScreenState extends State<AITryOnScreen> {
           child: Container(
             height: 190,
             decoration: BoxDecoration(
-              color: const Color(0xFF1E1B38),
+              color: Colors.white,
               borderRadius: BorderRadius.circular(16),
               border: Border.all(
-                color: humanImage != null ? const Color(0xFFE94057) : const Color(0xFF322E54),
+                color: humanImage != null ? const Color(0xFFD4AF37) : const Color(0xFFEAEAEA),
                 width: humanImage != null ? 1.5 : 1,
               ),
+              boxShadow: [
+                BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 10, offset: const Offset(0, 4)),
+              ],
             ),
             child: ClipRRect(
               borderRadius: BorderRadius.circular(16),
@@ -468,14 +472,14 @@ class _AITryOnScreenState extends State<AITryOnScreen> {
                   : const Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.add_a_photo_outlined, size: 36, color: Color(0xFF8B87B5)),
+                        Icon(Icons.add_a_photo_outlined, size: 36, color: Color(0xFFD4AF37)),
                         SizedBox(height: 12),
                         Text(
                           "Select Photo",
-                          style: TextStyle(color: Color(0xFF8B87B5), fontSize: 12, fontWeight: FontWeight.bold),
+                          style: TextStyle(color: Color(0xFF2F2F2F), fontSize: 12, fontWeight: FontWeight.bold),
                         ),
                         SizedBox(height: 4),
-                        Text("Selfie / Portrait", style: TextStyle(color: Color(0xFF5B5785), fontSize: 10)),
+                        Text("Selfie / Portrait", style: TextStyle(color: Color(0xFF888888), fontSize: 10)),
                       ],
                     ),
             ),
@@ -493,13 +497,14 @@ class _AITryOnScreenState extends State<AITryOnScreen> {
         gradient: isLoading
             ? null
             : const LinearGradient(
-                colors: [Color(0xFF8A2387), Color(0xFFE94057), Color(0xFFF27121)],
+                colors: [Color(0xFFD4AF37), Color(0xFFE5C86C), Color(0xFFD4AF37)],
               ),
+        color: isLoading ? const Color(0xFFF0EDE8) : null,
         boxShadow: isLoading
             ? []
             : [
                 BoxShadow(
-                  color: const Color(0xFFE94057).withOpacity(0.35),
+                  color: const Color(0xFFD4AF37).withOpacity(0.4),
                   blurRadius: 15,
                   offset: const Offset(0, 5),
                 )
@@ -549,17 +554,20 @@ class _AITryOnScreenState extends State<AITryOnScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 20),
       decoration: BoxDecoration(
-        color: const Color(0xFF1E1B38).withOpacity(0.5),
+        color: Colors.white,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFF322E54)),
+        border: Border.all(color: const Color(0xFFEAEAEA)),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 10, offset: const Offset(0, 4)),
+        ],
       ),
       child: const Column(
         children: [
-          Icon(Icons.image_search, size: 48, color: Color(0xFF5B5785)),
-          const SizedBox(height: 12),
+          Icon(Icons.image_search, size: 48, color: Color(0xFFD4AF37)),
+          SizedBox(height: 12),
           Text(
             "Try-On result will appear here",
-            style: TextStyle(color: Color(0xFF8B87B5), fontSize: 13, fontWeight: FontWeight.w600),
+            style: TextStyle(color: Color(0xFF888888), fontSize: 13, fontWeight: FontWeight.w600),
           ),
         ],
       ),
@@ -572,20 +580,20 @@ class _AITryOnScreenState extends State<AITryOnScreen> {
       children: [
         const Row(
           children: [
-            Icon(Icons.auto_awesome, color: Color(0xFFF27121), size: 20),
+            Icon(Icons.auto_awesome, color: Color(0xFFD4AF37), size: 20),
             SizedBox(width: 8),
-            Text("Try-On Result", style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+            Text("Try-On Result", style: TextStyle(color: Color(0xFF2F2F2F), fontSize: 16, fontWeight: FontWeight.bold)),
           ],
         ),
         const SizedBox(height: 16),
         Container(
           decoration: BoxDecoration(
-            color: const Color(0xFF1E1B38),
+            color: Colors.white,
             borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: const Color(0xFFE94057), width: 1.5),
+            border: Border.all(color: const Color(0xFFD4AF37), width: 1.5),
             boxShadow: [
               BoxShadow(
-                color: const Color(0xFFE94057).withOpacity(0.25),
+                color: const Color(0xFFD4AF37).withOpacity(0.2),
                 blurRadius: 20,
                 spreadRadius: 1,
               )
@@ -593,49 +601,72 @@ class _AITryOnScreenState extends State<AITryOnScreen> {
           ),
           child: ClipRRect(
             borderRadius: BorderRadius.circular(18),
-            child: Image.network(
-              resultImage!.startsWith('http') ? resultImage! : "${ApiService.baseUrl.replaceAll('/api', '')}$resultImage",
-              fit: BoxFit.cover,
-              loadingBuilder: (context, child, loadingProgress) {
-                if (loadingProgress == null) return child;
-                return const SizedBox(
-                  height: 300,
-                  child: Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        CircularProgressIndicator(color: Color(0xFFE94057)),
-                        SizedBox(height: 12),
-                        Text("Loading AI Output...", style: TextStyle(color: Color(0xFF8B87B5), fontSize: 12)),
-                      ],
-                    ),
-                  ),
-                );
-              },
-              errorBuilder: (context, error, stackTrace) {
-                return Container(
-                  height: 250,
-                  color: const Color(0xFF2E1B2A),
-                  child: const Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.error_outline, color: Colors.redAccent, size: 40),
-                        SizedBox(height: 12),
-                        Text(
-                          "Failed to render try-on image.\nVerify your server URL or network status.",
-                          textAlign: TextAlign.center,
-                          style: TextStyle(color: Colors.redAccent, fontSize: 12, height: 1.5),
+            child: Builder(
+              builder: (context) {
+                // If base64 data — render directly as memory image (no URL needed)
+                if (resultImage!.startsWith('data:image') || !resultImage!.startsWith('http')) {
+                  try {
+                    final b64 = resultImage!.contains(',')
+                        ? resultImage!.split(',')[1]
+                        : resultImage!;
+                    final bytes = base64Decode(b64);
+                    return Image.memory(
+                      bytes,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, _) => _renderErrorBox(),
+                    );
+                  } catch (_) {
+                    return _renderErrorBox();
+                  }
+                }
+                // Fallback: URL-based image
+                return Image.network(
+                  resultImage!,
+                  fit: BoxFit.cover,
+                  loadingBuilder: (context, child, loadingProgress) {
+                    if (loadingProgress == null) return child;
+                    return const SizedBox(
+                      height: 300,
+                      child: Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            CircularProgressIndicator(color: Color(0xFFD4AF37)),
+                            SizedBox(height: 12),
+                            Text("Loading AI Output...", style: TextStyle(color: Color(0xFF888888), fontSize: 12)),
+                          ],
                         ),
-                      ],
-                    ),
-                  ),
+                      ),
+                    );
+                  },
+                  errorBuilder: (context, error, stackTrace) => _renderErrorBox(),
                 );
               },
             ),
           ),
         ),
       ],
+    );
+  }
+
+  Widget _renderErrorBox() {
+    return Container(
+      height: 250,
+      color: const Color(0xFF2E1B2A),
+      child: const Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.error_outline, color: Colors.redAccent, size: 40),
+            SizedBox(height: 12),
+            Text(
+              "Failed to render try-on image.\nVerify your server URL or network status.",
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.redAccent, fontSize: 12, height: 1.5),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

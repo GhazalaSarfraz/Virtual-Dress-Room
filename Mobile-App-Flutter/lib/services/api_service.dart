@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import '../models/product.dart';
 
@@ -91,7 +92,10 @@ class ApiService {
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        if (data['status'] == 'success') {
+        var status = data['status'];
+        bool isSuccess = (status == 'success' || status == true);
+
+        if (isSuccess) {
           List<dynamic> list = data['products'];
           return list.map((item) => Product.fromJson(item)).toList();
         }
@@ -261,22 +265,34 @@ class ApiService {
         Uri.parse("$baseUrl/tryon"),
         headers: {
           "Content-Type": "application/json",
+          "Accept": "application/json",
         },
         body: jsonEncode({
           "human_image": humanImageBase64,
           "cloth_image_url": clothImageUrl,
           "description": description
         }),
-      ).timeout(const Duration(seconds: 120)); // VTON models require longer timeouts
+      ).timeout(const Duration(seconds: 180)); // VirtualFit AI (RunPod IDM-VTON) needs up to 3 min
 
-      return jsonDecode(response.body);
+      final decoded = jsonDecode(response.body);
+      if (decoded['status'] == true) decoded['status'] = 'success';
+      if (decoded['status'] == false) decoded['status'] = 'error';
+      return decoded;
     } catch (e) {
       print("TryOn Error: $e");
       return {
         "status": "error",
-        "message": "Connection error: $e. Check your internet connection or server status."
+        "message": "VirtualFit AI connection error: $e"
       };
     }
+  }
+
+  /// Normalize API responses: Laravel may return status as true/false boolean
+  /// Convert to string 'success'/'error' for consistent Flutter-side handling.
+  static Map<String, dynamic> _normalizeResponse(Map<String, dynamic> data) {
+    if (data['status'] == true) data['status'] = 'success';
+    if (data['status'] == false) data['status'] = 'error';
+    return data;
   }
 
   // Add to Cart
@@ -285,10 +301,10 @@ class ApiService {
     try {
       final response = await http.post(
         Uri.parse("$baseUrl/cart"),
-        headers: {"Content-Type": "application/json"},
+        headers: {"Content-Type": "application/json", "Accept": "application/json"},
         body: jsonEncode({"user_id": currentUserId, "product_id": productId, "quantity": 1}),
       );
-      return jsonDecode(response.body);
+      return _normalizeResponse(jsonDecode(response.body));
     } catch (e) {
       return {"status": "error", "message": "Connection error: $e"};
     }
@@ -296,13 +312,59 @@ class ApiService {
 
   // Get Cart
   static Future<List<dynamic>> fetchCart() async {
-    if (currentUserId == null) return [];
+    if (currentUserId == null) {
+      debugPrint("[Cart] currentUserId is null — user not logged in");
+      return [];
+    }
     try {
-      final response = await http.get(Uri.parse("$baseUrl/cart?user_id=$currentUserId"));
+      final response = await http.get(
+        Uri.parse("$baseUrl/cart?user_id=$currentUserId"),
+        headers: {"Accept": "application/json"},
+      );
+      debugPrint("[Cart] Status: ${response.statusCode}");
+      debugPrint("[Cart] Body: ${response.body}");
+
       final data = jsonDecode(response.body);
-      if (data['status'] == 'success') return data['cart'];
+
+      // Handle boolean status (Laravel returns true/false, not 'success')
+      var status = data['status'];
+      bool isSuccess = (status == 'success' || status == true);
+
+      if (isSuccess && data['cart'] is List) {
+        final cartList = data['cart'] as List<dynamic>;
+        debugPrint("[Cart] Found ${cartList.length} items");
+
+        // For each item, if 'product' is null, try fetching it
+        for (int i = 0; i < cartList.length; i++) {
+          final item = cartList[i];
+          if (item['product'] == null && item['product_id'] != null) {
+            debugPrint("[Cart] Item $i missing product data, fetching product_id=${item['product_id']}");
+            try {
+              final prodRes = await http.get(
+                Uri.parse("$baseUrl/products/${item['product_id']}"),
+                headers: {"Accept": "application/json"},
+              );
+              final prodData = jsonDecode(prodRes.body);
+              // Handle both {product: {...}} and direct {...} responses
+              if (prodData is Map) {
+                if (prodData.containsKey('product')) {
+                  cartList[i]['product'] = prodData['product'];
+                } else if (prodData.containsKey('id')) {
+                  cartList[i]['product'] = prodData;
+                }
+              }
+            } catch (pe) {
+              debugPrint("[Cart] Failed to fetch product ${item['product_id']}: $pe");
+            }
+          }
+        }
+
+        return cartList;
+      }
+      debugPrint("[Cart] No items or wrong status: $status");
       return [];
     } catch (e) {
+      debugPrint("[Cart] fetchCart error: $e");
       return [];
     }
   }
@@ -310,8 +372,42 @@ class ApiService {
   // Remove from Cart
   static Future<void> removeFromCart(int cartId) async {
     try {
-      await http.delete(Uri.parse("$baseUrl/cart/$cartId"));
-    } catch (e) {}
+      await http.delete(
+        Uri.parse("$baseUrl/cart/$cartId"),
+        headers: {"Accept": "application/json"},
+      );
+    } catch (e) {
+      debugPrint("[Cart] removeFromCart error: $e");
+    }
+  }
+
+  // Update Cart Quantity
+  static Future<Map<String, dynamic>> updateCartQuantity(int cartId, int quantity) async {
+    try {
+      final response = await http.put(
+        Uri.parse("$baseUrl/cart/$cartId"),
+        headers: {"Content-Type": "application/json", "Accept": "application/json"},
+        body: jsonEncode({"quantity": quantity}),
+      );
+      return _normalizeResponse(jsonDecode(response.body));
+    } catch (e) {
+      return {"status": "error", "message": "Connection error: $e"};
+    }
+  }
+
+  // Checkout
+  static Future<Map<String, dynamic>> checkout() async {
+    if (currentUserId == null) return {"status": "error", "message": "Please login first"};
+    try {
+      final response = await http.post(
+        Uri.parse("$baseUrl/cart/checkout"),
+        headers: {"Content-Type": "application/json", "Accept": "application/json"},
+        body: jsonEncode({"user_id": currentUserId}),
+      );
+      return _normalizeResponse(jsonDecode(response.body));
+    } catch (e) {
+      return {"status": "error", "message": "Connection error: $e"};
+    }
   }
 
   // Add to Wishlist
@@ -320,10 +416,10 @@ class ApiService {
     try {
       final response = await http.post(
         Uri.parse("$baseUrl/wishlist"),
-        headers: {"Content-Type": "application/json"},
+        headers: {"Content-Type": "application/json", "Accept": "application/json"},
         body: jsonEncode({"user_id": currentUserId, "product_id": productId}),
       );
-      return jsonDecode(response.body);
+      return _normalizeResponse(jsonDecode(response.body));
     } catch (e) {
       return {"status": "error", "message": "Connection error: $e"};
     }
@@ -333,11 +429,46 @@ class ApiService {
   static Future<List<dynamic>> fetchWishlist() async {
     if (currentUserId == null) return [];
     try {
-      final response = await http.get(Uri.parse("$baseUrl/wishlist?user_id=$currentUserId"));
+      final response = await http.get(
+        Uri.parse("$baseUrl/wishlist?user_id=$currentUserId"),
+        headers: {"Accept": "application/json"},
+      );
+      debugPrint("[Wishlist] Status: ${response.statusCode}");
+      debugPrint("[Wishlist] Body: ${response.body}");
       final data = jsonDecode(response.body);
-      if (data['status'] == 'success') return data['wishlist'];
+
+      var status = data['status'];
+      bool isSuccess = (status == 'success' || status == true);
+
+      if (isSuccess && data['wishlist'] is List) {
+        final wishList = data['wishlist'] as List<dynamic>;
+
+        // Fill in missing product data
+        for (int i = 0; i < wishList.length; i++) {
+          final item = wishList[i];
+          if (item['product'] == null && item['product_id'] != null) {
+            try {
+              final prodRes = await http.get(
+                Uri.parse("$baseUrl/products/${item['product_id']}"),
+                headers: {"Accept": "application/json"},
+              );
+              final prodData = jsonDecode(prodRes.body);
+              if (prodData is Map) {
+                if (prodData.containsKey('product')) {
+                  wishList[i]['product'] = prodData['product'];
+                } else if (prodData.containsKey('id')) {
+                  wishList[i]['product'] = prodData;
+                }
+              }
+            } catch (_) {}
+          }
+        }
+
+        return wishList;
+      }
       return [];
     } catch (e) {
+      debugPrint("[Wishlist] fetchWishlist error: $e");
       return [];
     }
   }
@@ -345,8 +476,13 @@ class ApiService {
   // Remove from Wishlist
   static Future<void> removeFromWishlist(int wishlistId) async {
     try {
-      await http.delete(Uri.parse("$baseUrl/wishlist/$wishlistId"));
-    } catch (e) {}
+      await http.delete(
+        Uri.parse("$baseUrl/wishlist/$wishlistId"),
+        headers: {"Accept": "application/json"},
+      );
+    } catch (e) {
+      debugPrint("[Wishlist] removeFromWishlist error: $e");
+    }
   }
 }
 

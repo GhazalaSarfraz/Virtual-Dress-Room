@@ -2,50 +2,68 @@
 
 Welcome to the **Virtual Dress Room** repository! This is an advanced AI-powered Virtual Try-On application that allows users to virtually try on clothing using cutting-edge Generative AI models.
 
-This repository is a **Monorepo** containing the complete 3-Tier Architecture of the project.
+This repository is a **Monorepo** containing the complete 3-Tier Architecture of the project, serving both Mobile and Web platforms.
 
 ---
 
 ## 🏗️ Architecture & Data Flow
 
-The project is structured into three main layers, ensuring high performance, separation of concerns, and scalable AI inference.
+The project is structured into distinct layers to ensure high performance, separation of concerns, and scalable AI inference. Both the Flutter Mobile Client and the Laravel Web & Admin Portal communicate directly with the Laravel backend, which forwards try-on requests to the RunPod GPU endpoint.
 
 ```mermaid
 graph TD
-    A[📱 Mobile App Flutter] -->|Uploads Image & Garment| B(⚙️ Backend Laravel)
-    B -->|API Request| C(🌉 AI Bridge Python)
-    C -->|Forwards to Inference GPU| D[🚀 RunPod GPU Server IDM-VTON]
-    D -->|Generated Image| C
-    C -->|Base64 / Image Data| B
+    A[📱 Mobile App Flutter] -->|Uploads Image & Garment| B(⚙️ Unified Laravel Web & API)
+    W[💻 Laravel Web Client & Admin Panel] -->|Sends Try-On Request| B
+    B -->|Direct API Call / JSON| C[🚀 RunPod GPU Server IDM-VTON]
+    C -->|Generated Image| B
     B -->|Returns Final Try-On| A
+    B -->|Displays Try-On Result| W
 ```
 
 ### 1️⃣ Mobile Frontend (Flutter)
 - **Folder:** `/Mobile-App-Flutter`
 - **Tech Stack:** Flutter, Dart
-- **Role:** The user interface for the application. Users can take their photo, select a garment, and initiate the virtual try-on process.
+- **Role:** The mobile user interface. Users can take their photo, select a garment, and initiate the virtual try-on process.
 
-### 2️⃣ Backend API (Laravel)
+### 2️⃣ Unified Laravel Web Platform & Backend API (Laravel)
 - **Folder:** `/Backend-Laravel`
-- **Tech Stack:** Laravel (PHP), MySQL
-- **Role:** Handles user authentication, stores images, and manages business logic. It receives requests from the mobile app and acts as the secure gateway to the AI Bridge.
+- **Tech Stack:** Laravel (PHP), MySQL, Custom Luxury CSS Theme, JavaScript
+- **Role:** Handles user authentication, stores images, manages business logic, and hosts both the **Web Client** and **Admin Dashboard**.
+  - **Web Client:** Browse catalog, manage wishlists/carts, make purchases, view order history, and submit 5-star rating reviews.
+  - **Admin Dashboard:** Manage products, moderate reviews, and update customer order status in real time.
+  - **API Backend:** Acts as the secure gateway connecting the Flutter app to the database and making direct inference calls to the RunPod GPU server.
 
-### 3️⃣ AI Bridge (Python / Hugging Face Spaces)
-- **Folder:** `/AI-Bridge-Python`
-- **Tech Stack:** Python, FastAPI, Hugging Face Spaces
-- **Role:** Hosted on Hugging Face, this middleware connects the Laravel backend to the heavy GPU server. It prevents timeout issues, handles rate limiting, and securely routes requests to RunPod.
-
-### 4️⃣ AI Engine (RunPod GPU Server)
+### 3️⃣ AI Engine & API (RunPod GPU Server)
 - **Folder:** `/RunPod-GPU-Server`
-- **Tech Stack:** RunPod, RTX 3090, PyTorch, IDM-VTON, Diffusers
-- **Role:** The core AI engine. It loads the massive 15GB IDM-VTON model into GPU VRAM to perform high-quality virtual try-on inference in under 30 seconds.
+- **Tech Stack:** RunPod, RTX 3090, PyTorch, IDM-VTON, Python (FastAPI / Serverless Worker)
+- **Role:** The core AI engine. It loads the massive 15GB IDM-VTON model into GPU VRAM to perform high-quality virtual try-on inference in under 30 seconds. It exposes a direct endpoint that the Laravel backend queries asynchronously to process images.
+
+---
+
+## ✨ Features (Web & Mobile)
+
+### 🛒 E-Commerce & Checkout
+- **Smart Add to Cart:** Handles guest checkout redirection, seamlessly carrying wishlist items to the user dashboard post-login.
+- **Selective Payments & Single Checkout:** Supports checking out individual items from the cart or selecting specific products rather than forcing a full cart purchase.
+- **Dynamic Star Rating System:** Allows users to leave star ratings for delivered products directly from their dashboard:
+  - `5 Stars` = Excellent
+  - `4 Stars` = Good
+  - `3 Stars` = Average
+  - `2 Stars` = Poor
+  - `1 Star` = Terrible
+- **Admin Control Center:**
+  - Real-time Order Status updater (**Processing 🟡** ➜ **Shipped 🔵** ➜ **Delivered 🟢** ➜ **Cancelled 🔴**).
+  - Review monitoring and deletion dashboard.
+  - User and inventory statistics.
+- **Security & UX Enhancements:** 
+  - Dynamic password visibility toggles (Eye icon 👁️) on Reset Password pages.
+  - Custom cache-flashing utility routes for easy deployment maintenance.
 
 ---
 
 ## 🛠️ Technology Stack
-- **Frontend:** Flutter, Dart
+- **Frontend:** Flutter, Dart (Mobile) | Blade, JS, Custom Vanilla CSS (Web)
 - **Backend Core:** Laravel, PHP, MySQL
-- **Middleware:** Hugging Face Spaces, Python, Gradio Client / Requests
 - **Cloud Infrastructure:** RunPod (Cloud GPU)
 - **AI Models:** IDM-VTON, PyTorch, Diffusers, Detectron2, OpenPose
 
@@ -60,18 +78,20 @@ flutter pub get
 flutter run
 ```
 
-### Laravel Backend
+### Laravel Backend & Web Portal
 ```bash
 cd Backend-Laravel
 composer install
 cp .env.example .env
 php artisan key:generate
+php artisan migrate --seed
+php artisan storage:link
 php artisan serve
 ```
 
-### AI Bridge
+### RunPod GPU Server API
 ```bash
-cd AI-Bridge-Python
+cd RunPod-GPU-Server
 pip install -r requirements.txt
 python app.py
 ```

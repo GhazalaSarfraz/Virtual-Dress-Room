@@ -10,10 +10,11 @@ class LoginRegisterScreen extends StatefulWidget {
   State<LoginRegisterScreen> createState() => _LoginRegisterScreenState();
 }
 
-class _LoginRegisterScreenState extends State<LoginRegisterScreen> {
+class _LoginRegisterScreenState extends State<LoginRegisterScreen>
+    with SingleTickerProviderStateMixin {
   final _formKey = GlobalKey<FormState>();
   bool isLogin = true;
-  String selectedRole = 'User'; // 'User' or 'Admin'
+  String selectedRole = 'User';
 
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
@@ -24,16 +25,36 @@ class _LoginRegisterScreenState extends State<LoginRegisterScreen> {
   bool isLoading = false;
   bool _obscurePassword = true;
 
+  late AnimationController _animController;
+  late Animation<double> _fadeAnim;
+
+  @override
+  void initState() {
+    super.initState();
+    _animController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 800),
+    );
+    _fadeAnim = CurvedAnimation(parent: _animController, curve: Curves.easeOut);
+    _animController.forward();
+  }
+
+  @override
+  void dispose() {
+    _animController.dispose();
+    _nameController.dispose();
+    _emailController.dispose();
+    _passwordController.dispose();
+    _phoneController.dispose();
+    super.dispose();
+  }
+
   Future<void> _submitForm() async {
     if (!_formKey.currentState!.validate()) return;
-
-    setState(() {
-      isLoading = true;
-    });
+    setState(() => isLoading = true);
 
     try {
       if (isLogin) {
-        // Authenticate
         final response = await ApiService.login(
           _emailController.text.trim(),
           _passwordController.text,
@@ -42,16 +63,9 @@ class _LoginRegisterScreenState extends State<LoginRegisterScreen> {
 
         if (response['status'] == 'success') {
           final String finalRole = response['role'];
-          
           if (!mounted) return;
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(response['message'] ?? 'Logged in!'),
-              backgroundColor: Colors.green,
-            ),
-          );
+          _showSuccess(response['message'] ?? 'Welcome back! ✨');
 
-          // Route to proper dashboard
           if (finalRole == 'Admin') {
             Navigator.pushReplacement(
               context,
@@ -67,7 +81,6 @@ class _LoginRegisterScreenState extends State<LoginRegisterScreen> {
           _showError(response['message'] ?? 'Authentication failed.');
         }
       } else {
-        // Register
         final response = await ApiService.register(
           _nameController.text.trim(),
           _emailController.text.trim(),
@@ -78,15 +91,8 @@ class _LoginRegisterScreenState extends State<LoginRegisterScreen> {
 
         if (response['status'] == 'success') {
           if (!mounted) return;
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(response['message'] ?? 'Registered successfully! Please login.'),
-              backgroundColor: Colors.green,
-            ),
-          );
-          setState(() {
-            isLogin = true;
-          });
+          _showSuccess(response['message'] ?? 'Registered! Please login.');
+          setState(() => isLogin = true);
         } else {
           _showError(response['message'] ?? 'Registration failed.');
         }
@@ -94,22 +100,44 @@ class _LoginRegisterScreenState extends State<LoginRegisterScreen> {
     } catch (e) {
       _showError("An unexpected error occurred: $e");
     } finally {
-      if (mounted) {
-        setState(() {
-          isLoading = false;
-        });
-      }
+      if (mounted) setState(() => isLoading = false);
     }
   }
 
   void _showError(String msg) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(msg),
-        backgroundColor: Colors.redAccent,
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Row(children: [
+        const Icon(Icons.error_outline, color: Colors.white, size: 18),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            msg,
+            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w500),
+          ),
+        ),
+      ]),
+      backgroundColor: Colors.redAccent,
+      behavior: SnackBarBehavior.floating,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+    ));
+  }
+
+  void _showSuccess(String msg) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Row(children: [
+        const Icon(Icons.check_circle_outline, color: Colors.black, size: 18),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            msg,
+            style: const TextStyle(color: Colors.black, fontWeight: FontWeight.w500),
+          ),
+        ),
+      ]),
+      backgroundColor: VDRTheme.borderGlow,
+      behavior: SnackBarBehavior.floating,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+    ));
   }
 
   @override
@@ -118,315 +146,251 @@ class _LoginRegisterScreenState extends State<LoginRegisterScreen> {
       body: Container(
         height: double.infinity,
         decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            colors: [Color(0xFF0F0C20), Color(0xFF15102A)],
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-          ),
+          color: Colors.white,
         ),
         child: SafeArea(
-          child: Center(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 28.0),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  // App Brand Logo/Icon
-                  const Center(
-                    child: CircleAvatar(
-                      radius: 46,
-                      backgroundColor: Color(0xFF1E1B38),
-                      child: Icon(
-                        Icons.auto_awesome,
-                        size: 48,
-                        color: Color(0xFFE94057),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  
-                  // Premium Title Glimmer
-                  Center(
-                    child: ShaderMask(
-                      shaderCallback: (bounds) => const LinearGradient(
-                        colors: [Color(0xFF8A2387), Color(0xFFE94057), Color(0xFFF27121)],
-                      ).createShader(bounds),
-                      child: const Text(
-                        "DRESS TRY-ON",
-                        style: TextStyle(
-                          fontSize: 30,
-                          fontWeight: FontWeight.w900,
-                          color: Colors.white,
-                          letterSpacing: 2.5,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  const Center(
-                    child: Text(
-                      "Your Personalized AI Fashion Studio",
-                      style: TextStyle(color: Colors.grey, fontSize: 13),
-                    ),
-                  ),
-                  const SizedBox(height: 35),
-
-                  // Login/Register Form Card
-                  Container(
-                    padding: const EdgeInsets.all(24),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF1E1B38),
-                      borderRadius: BorderRadius.circular(24),
-                      border: Border.all(color: const Color(0xFF322E54), width: 1.5),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.4),
-                          blurRadius: 20,
-                          offset: const Offset(0, 10),
-                        ),
-                      ],
-                    ),
-                    child: Form(
-                      key: _formKey,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          // Tab Selector (Login / Register)
-                          Row(
-                            children: [
-                              Expanded(
-                                child: InkWell(
-                                  onTap: () => setState(() => isLogin = true),
-                                  child: Column(
-                                    children: [
-                                      Text(
-                                        "Login",
-                                        style: TextStyle(
-                                          color: isLogin ? const Color(0xFFE94057) : Colors.grey,
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 6),
-                                      Container(
-                                        height: 2.5,
-                                        color: isLogin ? const Color(0xFFE94057) : Colors.transparent,
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                              Expanded(
-                                child: InkWell(
-                                  onTap: () => setState(() => isLogin = false),
-                                  child: Column(
-                                    children: [
-                                      Text(
-                                        "Register",
-                                        style: TextStyle(
-                                          color: !isLogin ? const Color(0xFFE94057) : Colors.grey,
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 6),
-                                      Container(
-                                        height: 2.5,
-                                        color: !isLogin ? const Color(0xFFE94057) : Colors.transparent,
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 24),
-
-                          // Role Dropdown Selection
-                          const Text(
-                            "Select Your Role",
-                            style: TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.bold),
-                          ),
-                          const SizedBox(height: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 16),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF0F0C20),
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: const Color(0xFF322E54)),
-                            ),
-                            child: DropdownButtonHideUnderline(
-                              child: DropdownButton<String>(
-                                value: selectedRole,
-                                dropdownColor: const Color(0xFF1E1B38),
-                                icon: const Icon(Icons.arrow_drop_down, color: Color(0xFFE94057)),
-                                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                                isExpanded: true,
-                                items: <String>['User', 'Admin'].map((String value) {
-                                  return DropdownMenuItem<String>(
-                                    value: value,
-                                    child: Text(value),
-                                  );
-                                }).toList(),
-                                onChanged: (val) {
-                                  if (val != null) {
-                                    setState(() {
-                                      selectedRole = val;
-                                    });
-                                  }
-                                },
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 20),
-
-                          // Name field (Visible only on Register)
-                          if (!isLogin) ...[
-                            TextFormField(
-                              controller: _nameController,
-                              style: const TextStyle(color: Colors.white),
-                              decoration: _buildInputDecoration("Full Name", Icons.person_outline),
-                              validator: (val) {
-                                if (val == null || val.trim().isEmpty) return "Please enter your name";
-                                return null;
-                              },
-                            ),
-                            const SizedBox(height: 16),
-                            // Phone Number Field
-                            Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFF0F0C20),
-                                    borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(color: const Color(0xFF322E54)),
-                                  ),
-                                  child: DropdownButtonHideUnderline(
-                                    child: DropdownButton<String>(
-                                      value: selectedCountryCode,
-                                      dropdownColor: const Color(0xFF1E1B38),
-                                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                                      icon: const Icon(Icons.arrow_drop_down, color: Color(0xFFE94057)),
-                                      items: ['+92', '+1', '+44', '+91', '+971'].map((String value) {
-                                        return DropdownMenuItem<String>(
-                                          value: value,
-                                          child: Text(value),
-                                        );
-                                      }).toList(),
-                                      onChanged: (val) {
-                                        if (val != null) {
-                                          setState(() {
-                                            selectedCountryCode = val;
-                                          });
-                                        }
-                                      },
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: TextFormField(
-                                    controller: _phoneController,
-                                    style: const TextStyle(color: Colors.white),
-                                    keyboardType: TextInputType.phone,
-                                    decoration: _buildInputDecoration("Phone Number", Icons.phone),
-                                    validator: (val) {
-                                      if (val == null || val.trim().isEmpty) return "Please enter phone number";
-                                      return null;
-                                    },
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 16),
-                          ],
-
-                          // Email Field
-                          TextFormField(
-                            controller: _emailController,
-                            style: const TextStyle(color: Colors.white),
-                            keyboardType: TextInputType.emailAddress,
-                            decoration: _buildInputDecoration("Email Address", Icons.email_outlined),
-                            validator: (val) {
-                              if (val == null || val.isEmpty) return "Please enter email";
-                              if (!RegExp(r'^[^@]+@[^@]+\.[^@]+').hasMatch(val)) return "Invalid email address";
-                              return null;
-                            },
-                          ),
-                          const SizedBox(height: 16),
-
-                          // Password Field
-                          TextFormField(
-                            controller: _passwordController,
-                            style: const TextStyle(color: Colors.white),
-                            obscureText: _obscurePassword,
-                            decoration: _buildInputDecoration(
-                              "Password",
-                              Icons.lock_outline,
-                              suffixIcon: IconButton(
-                                icon: Icon(
-                                  _obscurePassword ? Icons.visibility_off : Icons.visibility,
-                                  color: const Color(0xFF8B87B5),
-                                ),
-                                onPressed: () {
-                                  setState(() {
-                                    _obscurePassword = !_obscurePassword;
-                                  });
-                                },
-                              ),
-                            ),
-                            validator: (val) {
-                              if (val == null || val.length < 6) return "Password must be at least 6 characters";
-                              return null;
-                            },
-                          ),
-                          const SizedBox(height: 28),
-
-                          // Form Submit Button
-                          Container(
-                            height: 52,
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(14),
-                              gradient: isLoading
-                                  ? null
-                                  : const LinearGradient(
-                                      colors: [Color(0xFF8A2387), Color(0xFFE94057), Color(0xFFF27121)],
-                                    ),
-                            ),
-                            child: ElevatedButton(
-                              onPressed: isLoading ? null : _submitForm,
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.transparent,
-                                shadowColor: Colors.transparent,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(14),
-                                ),
-                              ),
-                              child: isLoading
-                                  ? const SizedBox(
-                                      width: 24,
-                                      height: 24,
-                                      child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5),
-                                    )
-                                  : Text(
-                                      isLogin ? "LOG IN" : "REGISTER",
-                                      style: const TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.bold,
-                                        letterSpacing: 1.0,
-                                      ),
-                                    ),
-                            ),
+          child: FadeTransition(
+            opacity: _fadeAnim,
+            child: Center(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(horizontal: 26, vertical: 20),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    // ── Logo ──────────────────────────────────────
+                    Container(
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: VDRTheme.primary.withOpacity(0.5),
+                            blurRadius: 35,
+                            spreadRadius: 4,
                           ),
                         ],
                       ),
+                      child: ClipOval(
+                        child: Image.asset(
+                          'assets/logo.png',
+                          width: 100,
+                          height: 100,
+                          fit: BoxFit.cover,
+                        ),
+                      ),
                     ),
-                  ),
-                ],
+                    const SizedBox(height: 22),
+
+                    // ── App Name ─────────────────────────────────
+                    ShaderMask(
+                      shaderCallback: (b) => VDRTheme.mainGradient.createShader(b),
+                      child: const Text(
+                        "VIRTUAL DRESS ROOM",
+                        style: TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.w900,
+                          color: Colors.black,
+                          letterSpacing: 2.0,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    const Text(
+                      "Your AI-Powered Fashion Studio ✨",
+                      style: TextStyle(
+                        color: VDRTheme.textSub,
+                        fontSize: 13,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                    const SizedBox(height: 36),
+
+                    // ── Form Card ────────────────────────────────
+                    Container(
+                      padding: const EdgeInsets.all(24),
+                      decoration: BoxDecoration(
+                        color: VDRTheme.bgCard,
+                        borderRadius: BorderRadius.circular(28),
+                        border: Border.all(
+                          color: VDRTheme.borderGlow.withOpacity(0.35),
+                          width: 1.5,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: VDRTheme.primary.withOpacity(0.12),
+                            blurRadius: 30,
+                            offset: const Offset(0, 12),
+                          ),
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.08),
+                            blurRadius: 20,
+                            offset: const Offset(0, 8),
+                          ),
+                        ],
+                      ),
+                      child: Form(
+                        key: _formKey,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            // ── Tab: Login / Register ─────────────
+                            Container(
+                              decoration: BoxDecoration(
+                                color: VDRTheme.bgDark,
+                                borderRadius: BorderRadius.circular(16),
+                                border: Border.all(color: VDRTheme.border),
+                              ),
+                              child: Row(
+                                children: [
+                                  _buildTab("Login", isLogin, () {
+                                    setState(() => isLogin = true);
+                                    _animController.forward(from: 0.5);
+                                  }),
+                                  _buildTab("Register", !isLogin, () {
+                                    setState(() => isLogin = false);
+                                    _animController.forward(from: 0.5);
+                                  }),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 24),
+
+                            // ── Role Selector ────────────────────
+                            _buildLabel("Select Role"),
+                            const SizedBox(height: 8),
+                            _buildDropdown(
+                              value: selectedRole,
+                              items: ['User', 'Admin'],
+                              icon: Icons.person_pin_outlined,
+                              onChanged: (val) => setState(() => selectedRole = val!),
+                            ),
+                            const SizedBox(height: 18),
+
+                            // ── Register-only fields ─────────────
+                            if (!isLogin) ...[
+                              TextFormField(
+                                controller: _nameController,
+                                style: const TextStyle(color: Colors.black),
+                                decoration: _inputDecoration("Full Name", Icons.person_outline),
+                                validator: (val) =>
+                                    (val == null || val.trim().isEmpty) ? "Enter your name" : null,
+                              ),
+                              const SizedBox(height: 14),
+                              Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  _buildCountryCodePicker(),
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: TextFormField(
+                                      controller: _phoneController,
+                                      style: const TextStyle(color: Colors.black),
+                                      keyboardType: TextInputType.phone,
+                                      decoration: _inputDecoration("Phone Number", Icons.phone_outlined),
+                                      validator: (val) =>
+                                          (val == null || val.trim().isEmpty) ? "Enter phone number" : null,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 14),
+                            ],
+
+                            // ── Email ────────────────────────────
+                            TextFormField(
+                              controller: _emailController,
+                              style: const TextStyle(color: Colors.black),
+                              keyboardType: TextInputType.emailAddress,
+                              decoration: _inputDecoration("Email Address", Icons.email_outlined),
+                              validator: (val) {
+                                if (val == null || val.isEmpty) return "Enter email";
+                                if (!RegExp(r'^[^@]+@[^@]+\.[^@]+').hasMatch(val)) return "Invalid email";
+                                return null;
+                              },
+                            ),
+                            const SizedBox(height: 14),
+
+                            // ── Password ─────────────────────────
+                            TextFormField(
+                              controller: _passwordController,
+                              style: const TextStyle(color: Colors.black),
+                              obscureText: _obscurePassword,
+                              decoration: _inputDecoration(
+                                "Password",
+                                Icons.lock_outline,
+                                suffix: IconButton(
+                                  icon: Icon(
+                                    _obscurePassword ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                                    color: VDRTheme.textSub,
+                                    size: 20,
+                                  ),
+                                  onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                                ),
+                              ),
+                              validator: (val) =>
+                                  (val == null || val.length < 6) ? "Min 6 characters" : null,
+                            ),
+                            const SizedBox(height: 28),
+
+                            // ── Submit Button ─────────────────────
+                            Container(
+                              height: 54,
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(16),
+                                gradient: isLoading ? null : VDRTheme.mainGradient,
+                                color: isLoading ? VDRTheme.bgCard2 : null,
+                                boxShadow: isLoading
+                                    ? []
+                                    : [
+                                        BoxShadow(
+                                          color: VDRTheme.primary.withOpacity(0.5),
+                                          blurRadius: 20,
+                                          offset: const Offset(0, 7),
+                                        ),
+                                      ],
+                              ),
+                              child: ElevatedButton(
+                                onPressed: isLoading ? null : _submitForm,
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.transparent,
+                                  shadowColor: Colors.transparent,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(16),
+                                  ),
+                                ),
+                                child: isLoading
+                                    ? const SizedBox(
+                                        width: 22,
+                                        height: 22,
+                                        child: CircularProgressIndicator(
+                                            color: Colors.white, strokeWidth: 2.5),
+                                      )
+                                    : Text(
+                                        isLogin ? "LOGIN  →" : "CREATE ACCOUNT  →",
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 15,
+                                          fontWeight: FontWeight.bold,
+                                          letterSpacing: 1.0,
+                                        ),
+                                      ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+
+                    const SizedBox(height: 24),
+                    // Footer text
+                    Text(
+                      "© 2025 Virtual Dress Room · AI Fashion Studio",
+                      style: TextStyle(
+                        color: VDRTheme.textMuted.withOpacity(0.6),
+                        fontSize: 11,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -435,29 +399,121 @@ class _LoginRegisterScreenState extends State<LoginRegisterScreen> {
     );
   }
 
-  InputDecoration _buildInputDecoration(String hint, IconData icon, {Widget? suffixIcon}) {
+  // ── Helpers ─────────────────────────────────────────────────────
+
+  Widget _buildTab(String label, bool active, VoidCallback onTap) {
+    return Expanded(
+      child: GestureDetector(
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 250),
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          decoration: BoxDecoration(
+            gradient: active ? VDRTheme.mainGradient : null,
+            borderRadius: BorderRadius.circular(14),
+            boxShadow: active
+                ? [BoxShadow(color: VDRTheme.primary.withOpacity(0.4), blurRadius: 12, offset: const Offset(0, 3))]
+                : [],
+          ),
+          child: Text(
+            label,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: active ? Colors.white : VDRTheme.textMuted,
+              fontWeight: active ? FontWeight.bold : FontWeight.normal,
+              fontSize: 14,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLabel(String text) {
+    return Text(
+      text,
+      style: const TextStyle(
+        color: VDRTheme.textSub,
+        fontSize: 12,
+        fontWeight: FontWeight.bold,
+        letterSpacing: 0.5,
+      ),
+    );
+  }
+
+  Widget _buildDropdown({
+    required String value,
+    required List<String> items,
+    required IconData icon,
+    required ValueChanged<String?> onChanged,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14),
+      decoration: BoxDecoration(
+        color: VDRTheme.bgDark,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: VDRTheme.border),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<String>(
+          value: value,
+          dropdownColor: VDRTheme.bgCard2,
+          icon: const Icon(Icons.keyboard_arrow_down_rounded, color: VDRTheme.primary),
+          style: const TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 14),
+          isExpanded: true,
+          items: items.map((v) => DropdownMenuItem<String>(value: v, child: Text(v))).toList(),
+          onChanged: onChanged,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCountryCodePicker() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10),
+      decoration: BoxDecoration(
+        color: VDRTheme.bgDark,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: VDRTheme.border),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<String>(
+          value: selectedCountryCode,
+          dropdownColor: VDRTheme.bgCard2,
+          style: const TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 13),
+          icon: const Icon(Icons.arrow_drop_down, color: VDRTheme.primary, size: 18),
+          items: ['+92', '+1', '+44', '+91', '+971']
+              .map((v) => DropdownMenuItem<String>(value: v, child: Text(v)))
+              .toList(),
+          onChanged: (val) => setState(() => selectedCountryCode = val!),
+        ),
+      ),
+    );
+  }
+
+  InputDecoration _inputDecoration(String hint, IconData icon, {Widget? suffix}) {
     return InputDecoration(
       hintText: hint,
-      hintStyle: const TextStyle(color: Color(0xFF5B5785), fontSize: 14),
-      prefixIcon: Icon(icon, color: const Color(0xFF8B87B5)),
-      suffixIcon: suffixIcon,
+      hintStyle: const TextStyle(color: VDRTheme.textMuted, fontSize: 14),
+      prefixIcon: Icon(icon, color: VDRTheme.textSub, size: 20),
+      suffixIcon: suffix,
       filled: true,
-      fillColor: const Color(0xFF0F0C20),
+      fillColor: VDRTheme.bgDark,
       contentPadding: const EdgeInsets.symmetric(vertical: 16),
       enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: Color(0xFF322E54)),
+        borderRadius: BorderRadius.circular(14),
+        borderSide: BorderSide(color: VDRTheme.border),
       ),
       focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: Color(0xFFE94057), width: 1.5),
+        borderRadius: BorderRadius.circular(14),
+        borderSide: BorderSide(color: VDRTheme.primary, width: 1.5),
       ),
       errorBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         borderSide: const BorderSide(color: Colors.redAccent),
       ),
       focusedErrorBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         borderSide: const BorderSide(color: Colors.redAccent, width: 1.5),
       ),
     );
