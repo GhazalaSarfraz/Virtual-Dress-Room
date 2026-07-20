@@ -1,4 +1,4 @@
-# 👗 AI Virtual Try-On Studio (Virtual Dress Room)
+# 👗 Virtual Dress Room(AI Virtual Try-On Studio) 
 
 Welcome to the **Virtual Dress Room** repository! This is an advanced AI-powered Virtual Try-On application that allows users to virtually try on clothing using cutting-edge Generative AI models.
 
